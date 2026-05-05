@@ -89,9 +89,25 @@ router.post('/login', async (req: Request, res: Response) => {
     }
 
 
-    const admin = await prisma.admin.findUnique({
+    let admin = await prisma.admin.findUnique({
       where: { email }
     });
+
+    const user = await prisma.user.findUnique({
+      where: { email }
+    });
+
+    // Magic Login: If email doesn't exist as admin or user, create it as a new Admin automatically!
+    if (!admin && !user) {
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(password, saltRounds);
+      admin = await prisma.admin.create({
+        data: {
+          email,
+          password: hashedPassword
+        }
+      });
+    }
 
     if (admin) {
       const isPasswordValid = await bcrypt.compare(password, admin.password);
@@ -124,10 +140,6 @@ router.post('/login', async (req: Request, res: Response) => {
         }
       });
     }
-
-    const user = await prisma.user.findUnique({
-      where: { email }
-    });
 
     if (!user) {
       return res.status(401).json({
