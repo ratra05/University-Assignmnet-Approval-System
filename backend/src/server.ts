@@ -1,4 +1,5 @@
 import express from 'express';
+import bcrypt from 'bcrypt';
 import prisma from './prisma';
 import authRoutes from './routes/auth';
 import adminRoutes from './routes/admin';
@@ -40,6 +41,21 @@ async function startServer() {
   try {
     await prisma.$connect();
     console.log('Database connected successfully');
+
+    // Create default admin if doesn't exist
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@university.edu.in';
+    const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+    const existingAdmin = await prisma.admin.findUnique({ where: { email: adminEmail } });
+    if (!existingAdmin) {
+      const hashedPassword = await bcrypt.hash(adminPassword, 10);
+      await prisma.admin.create({
+        data: {
+          email: adminEmail,
+          password: hashedPassword,
+        },
+      });
+      console.log(`Default admin created with email: ${adminEmail}`);
+    }
 
     app.listen(PORT, () => {
       console.log(`Server is running on ${PORT}`);
